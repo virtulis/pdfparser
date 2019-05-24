@@ -570,7 +570,186 @@ class PDFObject
 		return $text;
 	}
 
+    /**
+     * @param Page
+     *
+     * @return string
+     * @throws \Exception
+     */
+    public function getTextLayout(Page $page = null)
+    {
+        $list                = [];
+        $text                = '';
+        $sections            = $this->getSectionsText($this->content);
+        $current_font = null;
 
+        foreach ($this->document->getObjects() as $obj) {
+            if ($obj instanceof Font) {
+                $current_font = $obj;
+                break;
+            }
+        }
+
+        if ($current_font === null) {
+            $current_font = new Font($this->document);
+        }
+
+        $cx = 0;
+        $cy = 0;
+
+        array_push(self::$recursionStack, $this->getUniqueId());
+        
+        $push = function () use (&$list, &$cx, &$cy, &$text) {
+            if (trim($text)) $list[] = [ 'x' => $cx, 'y' => $cy, 'text' => $text ];
+            $text = '';
+        };
+        
+        foreach ($sections as $section) {
+        
+            $cx = 0;
+            $cy = 0;
+            $text = '';
+
+            $commands = $this->getCommandsText($section);
+
+            foreach ($commands as $command) {
+            
+                switch ($command[self::OPERATOR]) {
+                    // set character spacing
+                    case 'Tc':
+                        break;
+
+                    // move text current point
+                    case 'Td':
+                    case 'TD':
+                        $args = preg_split('/\s/s', $command[self::COMMAND]);
+                        $y    = array_pop($args);
+                        $x    = array_pop($args);
+                        $push();
+                        $cx += $x;
+                        $cy += $y;
+                        break;
+
+                    case 'Tf':
+                        list($id,) = preg_split('/\s/s', $command[self::COMMAND]);
+                        $id           = trim($id, '/');
+                        if (!is_null($page)) {
+                            $current_font = $page->getFont($id);
+                        }
+                        break;
+
+                    case "'":
+                    case 'Tj':
+                        $command[self::COMMAND] = array($command);
+                    case 'TJ':
+                        // Skip if not previously defined, should never happened.
+                        if (is_null($current_font)) {
+                            // Fallback
+                            // TODO : Improve
+                            $text .= $command[self::COMMAND][0][self::COMMAND];
+                            break;
+                        }
+
+                        $sub_text = $current_font->decodeText($command[self::COMMAND]);
+                        $text .= $sub_text;
+                        break;
+
+                    // set leading
+                    case 'TL':
+                        $text .= ' ';
+                        break;
+
+                    case 'Tm':
+                        $args = preg_split('/\s/s', $command[self::COMMAND]);
+                        $push();
+                        $cy    = array_pop($args);
+                        $cx    = array_pop($args);
+                        break;
+
+                    // set super/subscripting text rise
+                    case 'Ts':
+                        break;
+
+                    // set word spacing
+                    case 'Tw':
+                        break;
+
+                    // set horizontal scaling
+                    case 'Tz':
+                        $text .= "\n";
+                        break;
+
+                    // move to start of next line
+                    case 'T*':
+                        $text .= "\n";
+                        break;
+
+                    case 'Da':
+                        break;
+
+                    case 'Do':
+                        if (!is_null($page)) {
+                            $args    = preg_split('/\s/s', $command[self::COMMAND]);
+                            $id      = trim(array_pop($args), '/ ');
+                            $xobject = $page->getXObject($id);
+
+
+                             // @todo $xobject could be a ElementXRef object, which would then throw an error
+                             if ( is_object($xobject) && $xobject instanceof PDFObject && !in_array($xobject->getUniqueId(), self::$recursionStack) ) {
+                                // Not a circular reference.
+                                $push();
+                                $list = array_merge($list, $xobject->getTextLayout($page));
+                            }
+                        }
+                        break;
+
+                    case 'rg':
+                    case 'RG':
+                        break;
+
+                    case 're':
+                        break;
+
+                    case 'co':
+                        break;
+
+                    case 'cs':
+                        break;
+
+                    case 'gs':
+                        break;
+
+                    case 'en':
+                        break;
+
+                    case 'sc':
+                    case 'SC':
+                        break;
+
+                    case 'g':
+                    case 'G':
+                        break;
+
+                    case 'V':
+                        break;
+
+                    case 'vo':
+                    case 'Vo':
+                        break;
+
+                    default:
+                }
+            }
+            
+            $push();
+        }
+
+        array_pop(self::$recursionStack);
+
+        return $list;
+    }
+    
+    
     /**
      * @param string $text_part
      * @param int    $offset
