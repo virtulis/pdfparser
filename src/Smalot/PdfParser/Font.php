@@ -372,7 +372,10 @@ class Font extends PDFObject
                 case '<':
                     // Decode hexadecimal.
                     $text = self::decodeHexadecimal('<' . $command[PDFObject::COMMAND] . '>');
-
+                
+                    if (mb_check_encoding($text, "UTF-16BE")) {
+                        $text = mb_convert_encoding($text, "UTF-8", "UTF-16BE");
+                    }
                     if (mb_check_encoding($text, "UTF-8")) {
                         $unicode = true;
                     }
