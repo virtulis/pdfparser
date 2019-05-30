@@ -375,6 +375,7 @@ class Font extends PDFObject
                 
                     if (strpos($text, "\0") !== false && mb_check_encoding($text, "UTF-16BE")) {
                         $text = mb_convert_encoding($text, "UTF-8", "UTF-16BE");
+                        $unicode = true;
                     }
                     if (mb_check_encoding($text, "UTF-8")) {
                         $unicode = true;
