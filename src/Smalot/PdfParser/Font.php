@@ -352,9 +352,9 @@ class Font extends PDFObject
     /**
      * @param array $commands
      *
-     * @return string
+     * @return string | array
      */
-    public function decodeText($commands)
+    public function decodeText($commands, $as_array = false)
     {
         $word_position = 0;
         $words         = array();
@@ -375,7 +375,6 @@ class Font extends PDFObject
                 
                     if (strpos($text, "\0") !== false && mb_check_encoding($text, "UTF-16BE")) {
                         $text = mb_convert_encoding($text, "UTF-8", "UTF-16BE");
-                        $unicode = true;
                     }
                     if (mb_check_encoding($text, "UTF-8")) {
                         $unicode = true;
@@ -407,8 +406,9 @@ class Font extends PDFObject
             $loop_unicode = $unicode;
             $word         = $this->decodeContent($word, $loop_unicode);
         }
-
-        return implode(' ', $words);
+        
+        return $as_array ? $words : implode(' ', $words); 
+         
     }
 
     /**

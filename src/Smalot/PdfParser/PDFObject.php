@@ -583,13 +583,6 @@ class PDFObject
         $sections            = $this->getSectionsText($this->content);
         $current_font = null;
 
-        foreach ($this->document->getObjects() as $obj) {
-            if ($obj instanceof Font) {
-                $current_font = $obj;
-                break;
-            }
-        }
-
         if ($current_font === null) {
             $current_font = new Font($this->document);
         }
@@ -650,8 +643,12 @@ class PDFObject
                             break;
                         }
 
-                        $sub_text = $current_font->decodeText($command[self::COMMAND]);
-                        $text .= $sub_text;
+                        $push();
+                        $sub_text = $current_font->decodeText($command[self::COMMAND], true);
+                        foreach ($sub_text as $word) {
+                            $text = $word;
+                            $push();
+                        }
                         break;
 
                     // set leading
